@@ -40,23 +40,70 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var express_1 = __importDefault(require("express"));
+var GoogleGenerativeAI = require("@google/generative-ai").GoogleGenerativeAI;
 var app = (0, express_1.default)();
-app.use(express_1.default.json());
+var genAI = new GoogleGenerativeAI(process.env.GAIK);
+var model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+app.use(express_1.default.json({ limit: 52428800 }));
+app.use(express_1.default.urlencoded({ extended: true }));
+var bodyParser = require('body-parser');
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.post('/', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var imageData, validationError, sanitizedMessage;
+    var imageData, validationError, sanitizedMessage, prompt, base64String, result, response, text, error_1;
     return __generator(this, function (_a) {
-        if (!req.body.message) {
-            return [2 /*return*/, res.status(400).json({ error: 'Invalid request body' })];
+        switch (_a.label) {
+            case 0:
+                if (!req.body.message) {
+                    return [2 /*return*/, res.status(400).json({ error: 'Invalid request body' })];
+                }
+                imageData = req.body.imageData;
+                validationError = validateImageData(imageData);
+                if (validationError) {
+                    return [2 /*return*/, res.status(400).json({ success: false, error: validationError })];
+                }
+                sanitizedMessage = req.body.message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                if (sanitizedMessage !== "Arriba las manos pequeño caperucito, este es el lobo del aire!") {
+                    return [2 /*return*/, res.status(301).json({ success: false, error: validationError })];
+                }
+                prompt = "Please analyze the attached image and determine if it meets the                   following criteria consistent with a passing score on the                   clock drawing component of the Mini-Cog test:                   All numbers 1-12 are present and in the correct order.                   The numbers are placed in the proper positions on the clock face.                   Two hands are present, with the hour hand shorter than the minute hand.                   The hands are pointing to ten past eleven , 11:10.                   Since the drawing is done on a digital canvas, there is room for error and users only have one chance to submit.                  Respond in plain text, no markup and please be kind, older adults might read your response.";
+                console.info("\n\n\t *** prompt");
+                console.info(prompt);
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 5, , 6]);
+                base64String = imageData.startsWith('data:')
+                    ? imageData.split(',')[1]
+                    : imageData;
+                return [4 /*yield*/, model.generateContent([
+                        prompt,
+                        {
+                            inlineData: {
+                                data: base64String, // Only pass the Base64 string without the data URI prefix
+                                mimeType: 'image/png'
+                            }
+                        }
+                    ])];
+            case 2:
+                result = _a.sent();
+                console.log("\t\t *** Gemini API result \"", result);
+                return [4 /*yield*/, result.response];
+            case 3:
+                response = _a.sent();
+                console.log("\t\t *** Gemini API response \"", response);
+                return [4 /*yield*/, response.text()];
+            case 4:
+                text = _a.sent();
+                console.log(text);
+                res.status(201).json({ message: text });
+                return [3 /*break*/, 6];
+            case 5:
+                error_1 = _a.sent();
+                console.error("Error: ", error_1);
+                res.status(500).json({ error: error_1.message });
+                return [3 /*break*/, 6];
+            case 6: return [2 /*return*/];
         }
-        imageData = req.body.imageData;
-        validationError = validateImageData(imageData);
-        if (validationError) {
-            return [2 /*return*/, res.status(400).json({ success: false, error: validationError })];
-        }
-        sanitizedMessage = req.body.message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        console.log("\t sanitizedMessage: ", sanitizedMessage);
-        res.status(201).json({ message: 'Message received successfully' });
-        return [2 /*return*/];
     });
 }); });
 var port = parseInt(process.env.PORT || '3999');
@@ -80,6 +127,8 @@ function validateImageData(imageData) {
     if (!base64Pattern.test(imageData)) {
         return 'Invalid Base64 format';
     }
+    console.log('\t *** received image data: ', imageData);
+    console.log('\n\n\t *** received image is valid');
     return null; // No validation errors
 }
 //# sourceMappingURL=index.js.map
