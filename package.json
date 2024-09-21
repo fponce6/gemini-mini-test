@@ -13,7 +13,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@google/generative-ai": "^0.16.0",
-    "express": "^4.19.2",
+    "express": "^4.20.0",
     "langchain": "^0.2.12"
   },
   "devDependencies": {
